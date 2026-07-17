@@ -8,13 +8,21 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "startmon": "nodemon index.js"
+    "startmon": "nodemon index.js",
+    "build": "cmake-js compile"
+  },
+  "binary": {
+    "napi_versions": [
+      9
+    ]
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
   },
   "dependencies": {
+    "cmake-js": "^8.0.0",
     "express": "^5.2.1",
+    "node-addon-api": "^8.9.0",
     "socket.io": "^4.8.3"
   }
 }
