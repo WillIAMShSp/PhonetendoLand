@@ -1,13 +1,14 @@
 #include "VirtualPad.h"
 
 
+
 VirtualPad::VirtualPad(const Napi::CallbackInfo &info)
     : ObjectWrap(info)
 {
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
-        throwError(env, "Incorrect number of arguments");
+        throwError(env, "Incorrect number of arguments!");
 
         return;
     }
@@ -17,6 +18,7 @@ VirtualPad::VirtualPad(const Napi::CallbackInfo &info)
         return;
     }
 
+    playerId = info[0].As<Napi::String>().Utf8Value();
 }
 
 Napi::Value VirtualPad::test(const Napi::CallbackInfo &info)

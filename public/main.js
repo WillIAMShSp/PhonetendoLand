@@ -106,6 +106,8 @@ var button = document.getElementById("btn");
 
 function buttonClick() {
   sendChannel.send("SENT!");
+
+  socket.emit("controllerInput", "SENT");
 }
 
 button.addEventListener("click", buttonClick);
@@ -124,6 +126,7 @@ setTimeout(() => {
       });
   } else {
     sendMessage("got user media");
+    //pad = new VirtualPad("VirtualPad");
   }
 }, 5000);
 

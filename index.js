@@ -3,12 +3,17 @@ const http = require("http");
 const path = require("node:path");
 const os = require("node:os");
 const fs = require("node:fs");
+const { VirtualPad } = require("./build/VigemInputManager");
+
 const socketIO = require("socket.io");
+
 const app = express();
 
 const server = http.createServer(app);
 
 const io = new socketIO.Server(server);
+
+const pads = new Map();
 
 app.use(express.static(path.join(__dirname, "public")));
 
@@ -44,6 +49,8 @@ io.sockets.on("connection", (socket) => {
       socket.join(room);
       socket.emit("joined", room, socket.id);
       io.sockets.in(room).emit("ready");
+      const pad = new VirtualPad(socket.id);
+      pads.set(socket.id, pad);
     } else {
       // max two clients
       socket.emit("full", room);
@@ -59,6 +66,16 @@ io.sockets.on("connection", (socket) => {
         }
       });
     }
+  });
+
+  socket.on("controllerInput", function (input) {
+    const pad = pads.get(socket.id);
+    if (!pad) {
+      console.log("No virtual pad for socket:", socket.id);
+      return;
+    }
+
+    pad.test("IT WORKS!!!");
   });
 });
 

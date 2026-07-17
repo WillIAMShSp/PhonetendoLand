@@ -1,6 +1,7 @@
 #pragma once
 
 #include <napi.h>
+#include <string>
 
 
 class VirtualPad : public Napi::ObjectWrap<VirtualPad>
@@ -15,7 +16,7 @@ public:
 
 private:
     
-    uint32_t playerId;
+    std::string playerId;
 
 };
 
