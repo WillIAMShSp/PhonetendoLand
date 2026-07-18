@@ -22,6 +22,12 @@ if(MSVC AND CMAKE_JS_NODELIB_DEF AND CMAKE_JS_NODELIB_TARGET)
   execute_process(COMMAND ${CMAKE_AR} /def:${CMAKE_JS_NODELIB_DEF} /out:${CMAKE_JS_NODELIB_TARGET} ${CMAKE_STATIC_LINKER_FLAGS})
 endif()
 
+
+add_subdirectory(external/ViGEmClient)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ViGEmClient)
+
+
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD 
 COMMAND ${CMAKE_COMMAND} -E copy 
 $<TARGET_FILE:${PROJECT_NAME}>
