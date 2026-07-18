@@ -76,6 +76,7 @@ io.sockets.on("connection", (socket) => {
     }
 
     pad.test("IT WORKS!!!");
+    pad.startController();
   });
 });
 

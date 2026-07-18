@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 
 add_definitions(-DNAPI_VERSION=9)
-include_directories(${CMAKE_JS_INC}, "addons")
+include_directories(${CMAKE_JS_INC} "addons")
 
 file(GLOB SOURCE_FILES "addons/*")
 
