@@ -1,5 +1,18 @@
 "use strict";
 
+const buttonAtlas = {
+  sqrButton: 16,
+  xButton: 32,
+  oButton: 64,
+  triButton: 128,
+
+  dPadUp: 0,
+  dPadDown: 4,
+  dPadRight: 2, 
+  dPadLeft: 6, 
+}
+
+
 document.addEventListener("gesturestart", function (e) {
   e.preventDefault();
 });
@@ -102,15 +115,35 @@ socket.on("message", function (message) {
 var localVideo = document.querySelector("#localVideo");
 var remoteVideo = document.querySelector("#remoteVideo");
 
-var button = document.getElementById("btn");
+var startButton = document.getElementById("btnStart");
+var endButton = document.getElementById("btnEnd");
+var xButton = document.getElementById('btnX');
 
-function buttonClick() {
+function f_buttonClick(button, pressed) {
   sendChannel.send("SENT!");
 
-  socket.emit("controllerInput", 16);
+  socket.emit("controllerInput", [button, pressed]);
 }
 
-button.addEventListener("click", buttonClick);
+function f_startButton() {
+  socket.emit("controllerStart");
+}
+
+function f_endButton() {
+  socket.emit("controllerEnd");
+}
+
+startButton.addEventListener('click', f_startButton);
+endButton.addEventListener('click', f_endButton);
+
+xButton.addEventListener('mousedown', ()=>{f_buttonClick(buttonAtlas.xButton, true)});
+xButton.addEventListener('mouseup', ()=>{f_buttonClick(buttonAtlas.xButton, false)});
+
+
+
+
+
+
 
 setTimeout(() => {
   if (isInitiator) {
@@ -265,16 +298,4 @@ function stop() {
   pc = null;
 }
 
-const buttonAtlas = {
-  sqrButton: 16,
-  xButton: 32,
-  oButton: 64,
-  triButton: 128,
 
-  dPadUp: 0,
-  dPadDown: 4,
-  dPadRight: 2, 
-  dPadLeft: 6, 
-
-
-}

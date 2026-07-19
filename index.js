@@ -75,9 +75,28 @@ io.sockets.on("connection", (socket) => {
       return;
     }
 
-    pad.test("IT WORKS!!!");
-    pad.startController();
+    pad.sendInput(input[0], input[1]);
+    
   });
+
+  socket.on("controllerStart", function () {
+    const pad = pads.get(socket.id);
+    if (!pad) {
+      console.log("No virtual pad for socket:", socket.id);
+    }
+    pad.startController();
+
+  });
+
+  socket.on("controllerEnd", function() {
+     const pad = pads.get(socket.id);
+    if (!pad) {
+      console.log("No virtual pad for socket:", socket.id);
+    }
+    pad.endController();
+
+  })
+
 });
 
 const port = process.env.PORT || 5555;
