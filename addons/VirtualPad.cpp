@@ -31,6 +31,26 @@ VirtualPad::VirtualPad(const Napi::CallbackInfo &info)
     g_padActive = false;
 }
 
+VirtualPad::~VirtualPad()
+{
+    if (g_padActive) {
+        g_padActive = false;
+
+    if (m_thread.joinable()) {
+        m_thread.join();
+    }
+
+    vigem_target_remove(m_client, m_pad);
+    vigem_target_free(m_pad);
+    vigem_disconnect(m_client);
+    vigem_free(m_client);
+
+    printf("Cleaning shutdown complete");
+
+    }
+
+}
+
 Napi::Value VirtualPad::test(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
