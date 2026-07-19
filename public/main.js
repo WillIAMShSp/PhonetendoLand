@@ -264,3 +264,17 @@ function stop() {
   pc.close();
   pc = null;
 }
+
+const buttonAtlas = {
+  sqrButton: 16,
+  xButton: 32,
+  oButton: 64,
+  triButton: 128,
+
+  dPadUp: 0,
+  dPadDown: 4,
+  dPadRight: 2, 
+  dPadLeft: 6, 
+
+
+}

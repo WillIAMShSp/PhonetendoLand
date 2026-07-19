@@ -35,7 +35,8 @@ class VirtualPad : public Napi::ObjectWrap<VirtualPad>
 {
 public:
     VirtualPad(const Napi::CallbackInfo& info);
-    
+    ~VirtualPad();
+
     Napi::Value test(const Napi::CallbackInfo& info);
     Napi::Value startController(const Napi::CallbackInfo& info);
     Napi::Value sendInput(const Napi::CallbackInfo& info);
@@ -63,6 +64,9 @@ private:
 
     USHORT g_buttonStates = 0;
     void inputPollLoop();
+
+
+    
     
 };
 
