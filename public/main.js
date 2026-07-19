@@ -107,7 +107,7 @@ var button = document.getElementById("btn");
 function buttonClick() {
   sendChannel.send("SENT!");
 
-  socket.emit("controllerInput", "SENT");
+  socket.emit("controllerInput", 16);
 }
 
 button.addEventListener("click", buttonClick);
