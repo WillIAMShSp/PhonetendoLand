@@ -189,6 +189,22 @@ padButtonEventListenerAssignment(dPadUp, buttonAtlas.DPAD_UP);
 padButtonEventListenerAssignment(dPadDown, buttonAtlas.DPAD_DOWN);
 padButtonEventListenerAssignment(dPadLeft, buttonAtlas.DPAD_LEFT);
 padButtonEventListenerAssignment(dPadRight, buttonAtlas.DPAD_RIGHT);
+function triggerDemoVibration() {
+  console.log("Vibrate button pressed");
+
+  if ("vibrate" in navigator) {
+    navigator.vibrate(200);
+    console.log("Vibration triggered");
+  } else {
+    console.log("Vibration not supported");
+  }
+}
+
+const vibrateBtn = document.getElementById("vibrateBtn");
+
+if (vibrateBtn) {
+  vibrateBtn.addEventListener("click", triggerDemoVibration);
+}
 
 function gotStream(stream) {
   console.log("Adding local stream.");
