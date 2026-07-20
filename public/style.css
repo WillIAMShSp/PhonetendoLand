@@ -1,14 +1,25 @@
 /* 1. Prevent Mobile Scrolling & Lock Viewport */
-html, body {
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden; /* Disables scrolling completely */
-  position: fixed;  /* Extra insurance against iOS rubber-banding */
+  position: fixed; /* Extra insurance against iOS rubber-banding */
   background-color: #121212; /* Sleek dark background for video apps */
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
   color: #fff;
+
+  -webkit-user-select: none; /* Safari (both iOS and Desktop) */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none; /* Standard syntax (Chrome, Opera, modern Edge) */
+
+  /* Prevents iOS Safari from popping up the copy/paste context menu on long presses */
+  -webkit-touch-callout: none;
 }
 
 h1 {
@@ -24,7 +35,8 @@ h1 {
 }
 
 /* 2. Video Handling (Single view at a time) */
-#localVideo, #remoteVideo {
+#localVideo,
+#remoteVideo {
   position: absolute;
   top: 0;
   left: 0;
@@ -34,16 +46,9 @@ h1 {
   z-index: 1;
 }
 
-/* Hide remote by default or vice versa. 
-   In your main.js, you can toggle visibility by changing display or adding a .hidden class */
-#remoteVideo {
-  display: none; 
+.hidden {
+  display: none !important;
 }
-
-#localVideo {
-  display: none;
-}
-
 
 /* 3. Connection Buttons (Top of the screen) */
 .selection {
@@ -70,47 +75,94 @@ h1 {
   transition: background-color 0.2s;
 }
 
-#btnStart { background-color: rgba(46, 204, 113, 0.8); } /* Green */
-#btnEnd { background-color: rgba(231, 76, 60, 0.8); }    /* Red */
+#btnStart {
+  background-color: rgba(46, 204, 113, 0.8);
+} /* Green */
+#btnEnd {
+  background-color: rgba(231, 76, 60, 0.8);
+} /* Red */
 
-
-/* 4. Pad Buttons (Fixed position & oversized for thumbs) */
-.padButtons {
+.pad-right-buttons {
   position: absolute;
-  bottom: 40px;      /* Fixed distance from screen bottom */
-  left: 50%;
-  transform: translateX(-50%); /* Perfectly centers it regardless of screen width */
+  bottom: 35vh; /* Always 8% up from the bottom of the screen */
+  right: 6vw; /* Always 6% in from the right edge */
   z-index: 5;
 
-  /* Large touch target size */
-  width: 80px;
-  height: 80px;
-  border-radius: 50%; /* Clean circular button */
-  
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  background-color: rgba(52, 152, 219, 0.85); /* Vibrant UI Blue */
+  display: flex; /* Aligns buttons horizontally in a row */
+  flex-direction: row;
+  gap: 3vmin; /* Proportional spacing between the buttons */
+  pointer-events: none; /* Allows clicks to pass through empty space in the container */
+}
+
+/* 2. The Buttons handle their individual proportional styling */
+.padButtons {
+  pointer-events: auto; /* Re-enables clicking on the buttons themselves */
+
+  /* Proportional Scaling (keeps them circular) */
+  width: 18vmin;
+  height: 18vmin;
+  border-radius: 50%;
+
+  /* Styling & Glassmorphism */
+  border: 0.3vmin solid rgba(255, 255, 255, 0.4);
+  background-color: rgba(52, 152, 219, 0.85);
   color: white;
-  font-size: 1.5rem;
+  font-size: 4.5vmin;
   font-weight: bold;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
-  
-  /* Critical for snappy mobile responsiveness */
+  box-shadow: 0 1vh 2vh rgba(0, 0, 0, 0.3);
+
+  /* iOS Hold & Touch Fixes (Inherited globally, but safely kept here) */
   cursor: pointer;
-  touch-action: manipulation; 
-  outline: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
   -webkit-tap-highlight-color: transparent;
 
-  /* Fixes for iOS hold/long-press behavior: */
-  -webkit-touch-callout: none;    /* Prevents the default callout menu (copy/share popup) */
-  -webkit-user-select: none;      /* Prevents the magnifying glass and selection handles */
-  user-select: none;              
-  
-  /* Tells iOS not to use its default long-press behaviors */
-  touch-action: none;
-
+  transition: transform 0.1s ease;
 }
 
 .padButtons:active {
-  transform: translateX(-50%) scale(0.92); /* Visual click feedback */
+  transform: scale(0.92);
   background-color: rgba(41, 128, 185, 0.95);
+}
+
+.pad-container-left {
+  position: absolute;
+  bottom: 8vh; /* Vertically mirrors your right-side buttons */
+  left: 6vw; /* Anchors to the left edge of the screen */
+  z-index: 5;
+
+  display: grid;
+  /* Creates a 3x3 layout where each cell is exactly the size of your buttons */
+  grid-template-columns: repeat(3, 18vmin);
+  grid-template-rows: repeat(3, 18vmin);
+  /* The buttons share the same gap scale as the right side to look unified */
+  gap: 1.5vmin;
+  pointer-events: none;
+}
+
+/* 2. Specific Grid Mapping for the D-Pad Arrows */
+.dpad-btn {
+  pointer-events: auto;
+}
+
+.btn-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.btn-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.btn-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+
+.btn-down {
+  grid-column: 2;
+  grid-row: 3;
 }

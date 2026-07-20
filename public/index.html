@@ -12,13 +12,22 @@
     <video id="localVideo" autoplay muted></video>
     <video id="remoteVideo" autoplay playsinline muted></video>
 
-
     <div class="selection">
       <button class="connectionButtons" id="btnStart">START</button>
-      <button class="connectionButtons" id="btnEnd">END</button>      
+      <button class="connectionButtons" id="btnEnd">END</button>
     </div>
-    <button class="padButtons" id="btnX">X</button>
-    
+
+    <div class="pad-container-left">
+      <button class="padButtons dpad-btn btn-up" id="btnUp">▲</button>
+      <button class="padButtons dpad-btn btn-left" id="btnLeft">◀</button>
+      <button class="padButtons dpad-btn btn-right" id="btnRight">▶</button>
+      <button class="padButtons dpad-btn btn-down" id="btnDown">▼</button>
+    </div>
+
+    <div class="pad-right-buttons">
+      <button class="padButtons" id="btnX">1</button>
+      <button class="padButtons" id="btnA">2</button>
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script src="adapter.js"></script>

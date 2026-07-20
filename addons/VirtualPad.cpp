@@ -33,12 +33,12 @@ VirtualPad::VirtualPad(const Napi::CallbackInfo &info)
 
 VirtualPad::~VirtualPad()
 {
-    if (g_padActive) {
-        g_padActive = false;
-
     if (m_thread.joinable()) {
         m_thread.join();
     }
+    if (g_padActive) {
+        g_padActive = false;
+
 
     vigem_target_remove(m_client, m_pad);
     vigem_target_free(m_pad);
@@ -82,11 +82,13 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
         throw std::runtime_error("VigemConnection Failed."); //this might cause a problem if one controller malfunctions and the whole thing just dies.
     }
     
-    m_pad = vigem_target_ds4_alloc();
+    m_pad = vigem_target_x360_alloc();
 
     vigem_target_add(m_client, m_pad);
 
     m_thread = std::thread(&VirtualPad::inputPollLoop, this);
+
+    printf("Connected a controller!");
 
     return Napi::Value();
 
@@ -173,30 +175,32 @@ void VirtualPad::injectInput(ControllerInput input)
 
 void VirtualPad::inputPollLoop()
 {
-    DS4_REPORT report;
+    XUSB_REPORT report;
     
     while (g_padActive) {
         RtlZeroMemory(&report, sizeof(DS4_REPORT));
         
-        std::lock_guard<std::mutex> lock(g_mutex);
-        while (!g_controllerInputQueue.empty()) 
         {
-            ControllerInput input = g_controllerInputQueue.front();
-            g_controllerInputQueue.pop();
-            
-            if (input.pressState) 
+            std::lock_guard<std::mutex> lock(g_mutex);
+            while (!g_controllerInputQueue.empty()) 
             {
-                g_buttonStates |= input.buttonMask;
-            } 
-            else 
-            {
-                g_buttonStates &= ~input.buttonMask;
+                ControllerInput input = g_controllerInputQueue.front();
+                g_controllerInputQueue.pop();
+                
+                if (input.pressState) 
+                {
+                    g_buttonStates |= input.buttonMask;
+                } 
+                else 
+                {
+                    g_buttonStates &= ~input.buttonMask;
+                }
+                
             }
-
         }
 
         report.wButtons = g_buttonStates;
-        vigem_target_ds4_update(m_client, m_pad, report);
+        vigem_target_x360_update(m_client, m_pad, report);
         
         
         std::this_thread::sleep_for(std::chrono::milliseconds(15));

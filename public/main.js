@@ -1,17 +1,22 @@
 "use strict";
 
 const buttonAtlas = {
-  sqrButton: 16,
-  xButton: 32,
-  oButton: 64,
-  triButton: 128,
-
-  dPadUp: 0,
-  dPadDown: 4,
-  dPadRight: 2, 
-  dPadLeft: 6, 
-}
-
+  DPAD_UP: 0x0001,
+  DPAD_DOWN: 0x0002,
+  DPAD_LEFT: 0x0004,
+  DPAD_RIGHT: 0x0008,
+  START: 0x0010,
+  BACK: 0x0020,
+  LEFT_THUMB: 0x0040,
+  RIGHT_THUMB: 0x0080,
+  LEFT_SHOULDER: 0x0100,
+  RIGHT_SHOULDER: 0x0200,
+  GUIDE: 0x0400,
+  A: 0x1000,
+  B: 0x2000,
+  X: 0x4000,
+  Y: 0x8000,
+};
 
 document.addEventListener("gesturestart", function (e) {
   e.preventDefault();
@@ -117,7 +122,26 @@ var remoteVideo = document.querySelector("#remoteVideo");
 
 var startButton = document.getElementById("btnStart");
 var endButton = document.getElementById("btnEnd");
-var xButton = document.getElementById('btnX');
+
+// 1 and 2 buttons
+var xButton = document.getElementById("btnX");
+var aButton = document.getElementById("btnA");
+
+// dpad buttons :)
+var dPadUp = document.getElementById("btnUp");
+var dPadDown = document.getElementById("btnDown");
+var dPadLeft = document.getElementById("btnLeft");
+var dPadRight = document.getElementById("btnRight");
+
+function padButtonEventListenerAssignment(button, buttonValue) {
+  button.addEventListener("touchstart", () => {
+    f_buttonClick(buttonValue, true);
+  });
+
+  button.addEventListener("touchend", () => {
+    f_buttonClick(buttonValue, false);
+  });
+}
 
 function f_buttonClick(button, pressed) {
   sendChannel.send("SENT!");
@@ -126,49 +150,55 @@ function f_buttonClick(button, pressed) {
 }
 
 function f_startButton() {
-  socket.emit("controllerStart");
-}
-
-function f_endButton() {
-  socket.emit("controllerEnd");
-}
-
-startButton.addEventListener('click', f_startButton);
-endButton.addEventListener('click', f_endButton);
-
-xButton.addEventListener("touchstart", ()=>{f_buttonClick(buttonAtlas.xButton, true)});
-xButton.addEventListener('touchend', ()=>{f_buttonClick(buttonAtlas.xButton, false)});
-
-
-
-
-
-
-
-setTimeout(() => {
   if (isInitiator) {
     console.log("HELLO");
     navigator.mediaDevices
-      .getUserMedia({
+      .getDisplayMedia({
         audio: false,
-        video: true,
+        video: {
+          width: { ideal: 1280, max: 1280 },
+          height: { ideal: 720, max: 720 },
+
+          frameRate: { ideal: 60, max: 60 },
+        },
       })
       .then(gotStream)
       .catch(function (e) {
-        alert("getUserMedia() error: " + e.name);
+        alert("getDisplayMedia() error: " + e.name);
       });
   } else {
     sendMessage("got user media");
-    //pad = new VirtualPad("VirtualPad");
+    socket.emit("controllerStart");
   }
-}, 5000);
+}
+
+function f_endButton() {
+  if (!isInitiator) {
+    socket.emit("controllerEnd");
+  }
+  hangup();
+}
+
+startButton.addEventListener("click", f_startButton);
+endButton.addEventListener("click", f_endButton);
+
+padButtonEventListenerAssignment(xButton, buttonAtlas.X);
+padButtonEventListenerAssignment(aButton, buttonAtlas.A);
+
+padButtonEventListenerAssignment(dPadUp, buttonAtlas.DPAD_UP);
+padButtonEventListenerAssignment(dPadDown, buttonAtlas.DPAD_DOWN);
+padButtonEventListenerAssignment(dPadLeft, buttonAtlas.DPAD_LEFT);
+padButtonEventListenerAssignment(dPadRight, buttonAtlas.DPAD_RIGHT);
 
 function gotStream(stream) {
   console.log("Adding local stream.");
   localStream = stream;
-  localVideo.srcObject = stream;
+  localVideo.srcObject = null;
   sendMessage("got user media");
-  if (isInitiator) {
+  if (!isInitiator) {
+    localVideo.classList.add("hidden");
+  } else {
+    localVideo.classList.add("hidden");
     maybeStart();
   }
 }
@@ -263,6 +293,38 @@ function doAnswer() {
 function setLocalAndSendMessage(sessionDescription) {
   pc.setLocalDescription(sessionDescription);
   console.log("setLocalAndSendMessage sending message", sessionDescription);
+
+  if (
+    sessionDescription.type === "offer" ||
+    sessionDescription.type === "answer"
+  ) {
+    const senders = pc.getSenders();
+    const videoSender = senders.find(
+      (sender) => sender.track && sender.track.kind === "video",
+    );
+
+    if (videoSender) {
+      const parameters = videoSender.getParameters();
+
+      // Make sure the encodings array exists
+      if (!parameters.encodings || parameters.encodings.length === 0) {
+        parameters.encodings = [{}];
+      }
+
+      // 1,500,000 bits per second = 1.5 Mbps
+      parameters.encodings[0].maxBitrate = 1500000;
+
+      videoSender
+        .setParameters(parameters)
+        .then(() => {
+          console.log("Successfully limited video bitrate to 1.5 Mbps");
+        })
+        .catch((err) => {
+          console.error("Could not limit bitrate via setParameters:", err);
+        });
+    }
+  }
+
   sendMessage(sessionDescription);
 }
 
@@ -274,6 +336,11 @@ function handleRemoteStreamAdded(event) {
   console.log("Remote stream added.");
   remoteStream = event.stream;
   remoteVideo.srcObject = remoteStream;
+  remoteVideo.play().then(() => {
+    if ("playoutDelayHint" in remoteVideo) {
+      remoteVideo.playoutDelayHint = 0;
+    }
+  });
 }
 
 function handleRemoteStreamRemoved(event) {
@@ -297,5 +364,3 @@ function stop() {
   pc.close();
   pc = null;
 }
-
-
