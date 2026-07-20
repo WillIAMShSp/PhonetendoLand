@@ -136,8 +136,8 @@ function f_endButton() {
 startButton.addEventListener('click', f_startButton);
 endButton.addEventListener('click', f_endButton);
 
-xButton.addEventListener('mousedown', ()=>{f_buttonClick(buttonAtlas.xButton, true)});
-xButton.addEventListener('mouseup', ()=>{f_buttonClick(buttonAtlas.xButton, false)});
+xButton.addEventListener("touchstart", ()=>{f_buttonClick(buttonAtlas.xButton, true)});
+xButton.addEventListener('touchend', ()=>{f_buttonClick(buttonAtlas.xButton, false)});
 
 
 

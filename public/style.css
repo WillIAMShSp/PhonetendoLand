@@ -1,6 +1,116 @@
-body {
-  touch-action: none;
-  position: fixed;
-  font-family: "Courier New", Courier, monospace;
+/* 1. Prevent Mobile Scrolling & Lock Viewport */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Disables scrolling completely */
+  position: fixed;  /* Extra insurance against iOS rubber-banding */
+  background-color: #121212; /* Sleek dark background for video apps */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: #fff;
 }
- 
+
+h1 {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1rem;
+  margin: 0;
+  z-index: 10;
+  opacity: 0.7;
+  pointer-events: none; /* Keeps it from interfering with clicks */
+}
+
+/* 2. Video Handling (Single view at a time) */
+#localVideo, #remoteVideo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Fills screen without distortion */
+  z-index: 1;
+}
+
+/* Hide remote by default or vice versa. 
+   In your main.js, you can toggle visibility by changing display or adding a .hidden class */
+#remoteVideo {
+  display: none; 
+}
+
+#localVideo {
+  display: none;
+}
+
+
+/* 3. Connection Buttons (Top of the screen) */
+.selection {
+  position: absolute;
+  top: 15px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  z-index: 5; /* Sits safely above the video layers */
+}
+
+.connectionButtons {
+  padding: 10px 20px;
+  font-weight: bold;
+  border: none;
+  border-radius: 20px;
+  background-color: rgba(255, 255, 255, 0.25);
+  color: white;
+  backdrop-filter: blur(5px); /* Modern frosted-glass look */
+  -webkit-backdrop-filter: blur(5px);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+#btnStart { background-color: rgba(46, 204, 113, 0.8); } /* Green */
+#btnEnd { background-color: rgba(231, 76, 60, 0.8); }    /* Red */
+
+
+/* 4. Pad Buttons (Fixed position & oversized for thumbs) */
+.padButtons {
+  position: absolute;
+  bottom: 40px;      /* Fixed distance from screen bottom */
+  left: 50%;
+  transform: translateX(-50%); /* Perfectly centers it regardless of screen width */
+  z-index: 5;
+
+  /* Large touch target size */
+  width: 80px;
+  height: 80px;
+  border-radius: 50%; /* Clean circular button */
+  
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  background-color: rgba(52, 152, 219, 0.85); /* Vibrant UI Blue */
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+  
+  /* Critical for snappy mobile responsiveness */
+  cursor: pointer;
+  touch-action: manipulation; 
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+
+  /* Fixes for iOS hold/long-press behavior: */
+  -webkit-touch-callout: none;    /* Prevents the default callout menu (copy/share popup) */
+  -webkit-user-select: none;      /* Prevents the magnifying glass and selection handles */
+  user-select: none;              
+  
+  /* Tells iOS not to use its default long-press behaviors */
+  touch-action: none;
+
+}
+
+.padButtons:active {
+  transform: translateX(-50%) scale(0.92); /* Visual click feedback */
+  background-color: rgba(41, 128, 185, 0.95);
+}
