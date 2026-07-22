@@ -53,20 +53,13 @@ VirtualPad::~VirtualPad()
 
 Napi::Value VirtualPad::test(const Napi::CallbackInfo &info)
 {
+
     Napi::Env env = info.Env();
 
-    if (info.Length() < 1) {
-        throwError(env, "Incorrect number of arguments");
-        return env.Null();
-    }
-    if (!info[0].IsString()) {
-        throwError(env, "Data needed");
-        return env.Null();
-    }
-
-    Napi::String input = info[0].As<Napi::String>();
-
-    printf("Hello %s\n", input.Utf8Value().c_str());
+    // if (info.Length() < 1 || !info[0].IsFunction()) {
+    //     throwError(env, "Wrong Parameters");
+    //     return env.Null();
+    // }
 
     return Napi::Value();
 }
@@ -74,6 +67,31 @@ Napi::Value VirtualPad::test(const Napi::CallbackInfo &info)
 Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
+
+    if(info.Length() < 1 ||  !info[0].IsFunction()) 
+    {
+        throwError(env, "Incorrect parameters!");
+        return env.Null();
+    }
+
+    napi_value global, testFunc, arg;
+    napi_status status = napi_get_global(env, &global);
+    if (status != napi_ok) {
+        throwError(env, "Failed to obtain function");
+        return env.Null();
+    }
+
+    status = napi_get_named_property(env, global, "testFunc", &testFunc);
+
+
+
+    if (napi_create_reference(env, m_rumbleFuncVal, 1, &m_rumbleHookRef.hook) != napi_ok) {
+        throwError(env, "failed to create reference");
+        return env.Null();
+    }
+    m_rumbleHookRef.env = env;
+
+
     g_padActive = true;
 
     m_client = vigem_alloc();
@@ -86,9 +104,12 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
 
     vigem_target_add(m_client, m_pad);
 
+    printf("Adding RumbleCallBack\n");
+    vigem_target_x360_register_notification(m_client, m_pad, &RumbleCallback, (void*)(&m_rumbleHookRef));
+
     m_thread = std::thread(&VirtualPad::inputPollLoop, this);
 
-    printf("Connected a controller!");
+    printf("Connected a controller!\n");
 
     return Napi::Value();
 
@@ -142,6 +163,7 @@ Napi::Value VirtualPad::endController(const Napi::CallbackInfo &info)
         m_thread.join();
     }
 
+    vigem_target_x360_unregister_notification(m_pad);
     vigem_target_remove(m_client, m_pad);
     vigem_target_free(m_pad);
     vigem_disconnect(m_client);

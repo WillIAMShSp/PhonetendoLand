@@ -1,4 +1,8 @@
-"use strict";
+import { WebHaptics, defaultPatterns } from "web-haptics";
+
+const haptics = new WebHaptics({
+  debug: true,
+});
 
 const buttonAtlas = {
   DPAD_UP: 0x0001,
@@ -189,22 +193,16 @@ padButtonEventListenerAssignment(dPadUp, buttonAtlas.DPAD_UP);
 padButtonEventListenerAssignment(dPadDown, buttonAtlas.DPAD_DOWN);
 padButtonEventListenerAssignment(dPadLeft, buttonAtlas.DPAD_LEFT);
 padButtonEventListenerAssignment(dPadRight, buttonAtlas.DPAD_RIGHT);
+
 function triggerDemoVibration() {
   console.log("Vibrate button pressed");
 
-  if ("vibrate" in navigator) {
-    navigator.vibrate(200);
-    console.log("Vibration triggered");
-  } else {
-    console.log("Vibration not supported");
-  }
+  haptics.trigger(defaultPatterns.buzz);
 }
 
 const vibrateBtn = document.getElementById("vibrateBtn");
 
-if (vibrateBtn) {
-  vibrateBtn.addEventListener("click", triggerDemoVibration);
-}
+vibrateBtn.addEventListener("click", triggerDemoVibration);
 
 function gotStream(stream) {
   console.log("Adding local stream.");

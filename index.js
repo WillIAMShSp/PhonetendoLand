@@ -16,6 +16,7 @@ const io = new socketIO.Server(server);
 const pads = new Map();
 
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/dist", express.static(path.join(__dirname, "dist")));
 
 io.sockets.on("connection", (socket) => {
   console.log("User Connected");
@@ -76,27 +77,29 @@ io.sockets.on("connection", (socket) => {
     }
 
     pad.sendInput(input[0], input[1]);
-    
   });
+
+  function testFunc() {
+    console.log("test func called");
+  }
+  global.testFunc = testFunc;
 
   socket.on("controllerStart", function () {
     const pad = pads.get(socket.id);
     if (!pad) {
-      console.log("No virtual pad for socket:", socket.id);
+      console.log("No virtual pad for socket:", socket.id, "\n");
     }
-    pad.startController();
 
+    pad.startController(testFunc);
   });
 
-  socket.on("controllerEnd", function() {
-     const pad = pads.get(socket.id);
+  socket.on("controllerEnd", function () {
+    const pad = pads.get(socket.id);
     if (!pad) {
       console.log("No virtual pad for socket:", socket.id);
     }
     pad.endController();
-
-  })
-
+  });
 });
 
 const port = process.env.PORT || 5555;

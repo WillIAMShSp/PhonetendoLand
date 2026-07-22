@@ -9,7 +9,10 @@
   "scripts": {
     "start": "node index.js",
     "startmon": "nodemon index.js",
-    "build": "cmake-js compile"
+    "wpbuild": "webpack",
+    "wpwatch": "webpack --watch",
+    "cppbuild": "cmake-js compile",
+    "dev": "nodemon index.js"
   },
   "binary": {
     "napi_versions": [
@@ -17,12 +20,17 @@
     ]
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "webpack": "^5.108.4",
+    "webpack-cli": "^7.2.1"
   },
   "dependencies": {
     "cmake-js": "^8.0.0",
     "express": "^5.2.1",
     "node-addon-api": "^8.9.0",
-    "socket.io": "^4.8.3"
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "socket.io": "^4.8.3",
+    "web-haptics": "^0.0.6"
   }
 }

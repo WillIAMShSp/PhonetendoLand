@@ -11,6 +11,7 @@
 #define WIN32_LEAN_AND_MEAN  
 #include <windows.h>
 
+#include <iostream>
 #include <string>
 #include <thread>
 #include <atomic>
@@ -30,6 +31,30 @@ struct ControllerInput {
 
 };
 
+struct RumbleHookRef {
+    RumbleHookRef() = default;
+    RumbleHookRef(napi_ref& ref, uint32_t& refCount, Napi::Env& env) :hook(ref), refCount(refCount), env(env){}
+    napi_ref hook;
+    uint32_t refCount;
+    Napi::Env env = nullptr;
+};
+
+VOID CALLBACK RumbleCallback(PVIGEM_CLIENT Client, PVIGEM_TARGET Target, UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData) {
+   
+    RumbleHookRef ref = *(RumbleHookRef*)UserData;
+
+    napi_value funcval;
+    napi_get_reference_value(ref.env, ref.hook, &funcval);
+    
+    Napi::Value napiFuncVal = Napi::Value(ref.env, funcval);
+
+    Napi::Function func = napiFuncVal.As<Napi::Function>();
+
+    func.Call({});
+
+
+    // rumbleHook->Call({});
+}
 
 class VirtualPad : public Napi::ObjectWrap<VirtualPad>
 {
@@ -65,12 +90,21 @@ private:
     USHORT g_buttonStates = 0;
     void inputPollLoop();
 
+    
+    RumbleHookRef m_rumbleHookRef;
 
+    Napi::Value m_rumbleFuncVal;
+
+    
+    void testFunc(Napi::Env& env, napi_handle_scope scope, Napi::Function& function) {
+
+        Napi::HandleScope(env, scope);
+        function.Call({});
+
+    }
     
 
 
-    
-    
 };
 
 void throwError(Napi::Env& env, const char* message);
