@@ -88,6 +88,11 @@ socket.on("log", function (array) {
   console.log.apply(console, array);
 });
 
+socket.on("vibrate", function () {
+  console.log("Should be vibrating!!");
+  haptics.trigger(defaultPatterns.buzz);
+});
+
 ////////////////////////////////////////////////
 
 function sendMessage(message) {

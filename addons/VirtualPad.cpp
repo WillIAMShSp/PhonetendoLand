@@ -11,7 +11,7 @@
 
 
 VirtualPad::VirtualPad(const Napi::CallbackInfo &info)
-    : ObjectWrap(info)
+    : ObjectWrap(info), m_rumbleContext(info.Env())
 {
     Napi::Env env = info.Env();
 
@@ -33,6 +33,8 @@ VirtualPad::VirtualPad(const Napi::CallbackInfo &info)
 
 VirtualPad::~VirtualPad()
 {
+    
+
     if (m_thread.joinable()) {
         m_thread.join();
     }
@@ -56,41 +58,31 @@ Napi::Value VirtualPad::test(const Napi::CallbackInfo &info)
 
     Napi::Env env = info.Env();
 
-    // if (info.Length() < 1 || !info[0].IsFunction()) {
-    //     throwError(env, "Wrong Parameters");
-    //     return env.Null();
-    // }
+    if (info.Length() < 1 || !info[0].IsFunction()) {
+        throwError(env, "Incorrect Values passed");
+    }
 
     return Napi::Value();
+    
+
 }
 
 Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
-
+    
     if(info.Length() < 1 ||  !info[0].IsFunction()) 
     {
         throwError(env, "Incorrect parameters!");
         return env.Null();
     }
+    
+    m_rumbleContext = RumbleContext(env);
 
-    napi_value global, testFunc, arg;
-    napi_status status = napi_get_global(env, &global);
-    if (status != napi_ok) {
-        throwError(env, "Failed to obtain function");
-        return env.Null();
-    }
+    Napi::Function funcVal = info[0].As<Napi::Function>();
 
-    status = napi_get_named_property(env, global, "testFunc", &testFunc);
-
-
-
-    if (napi_create_reference(env, m_rumbleFuncVal, 1, &m_rumbleHookRef.hook) != napi_ok) {
-        throwError(env, "failed to create reference");
-        return env.Null();
-    }
-    m_rumbleHookRef.env = env;
-
+    m_rumbleContext.tsfn = Napi::ThreadSafeFunction::New(env, funcVal, "RumbleContext", 0, 1, &m_rumbleContext, finalizeCallBack, (void*)nullptr);
+    
 
     g_padActive = true;
 
@@ -105,13 +97,13 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
     vigem_target_add(m_client, m_pad);
 
     printf("Adding RumbleCallBack\n");
-    vigem_target_x360_register_notification(m_client, m_pad, &RumbleCallback, (void*)(&m_rumbleHookRef));
+    vigem_target_x360_register_notification(m_client, m_pad, &RumbleCallback, (void*)(&m_rumbleContext));
 
     m_thread = std::thread(&VirtualPad::inputPollLoop, this);
 
     printf("Connected a controller!\n");
 
-    return Napi::Value();
+    return m_rumbleContext.deferred.Promise();
 
 
 }
@@ -162,6 +154,10 @@ Napi::Value VirtualPad::endController(const Napi::CallbackInfo &info)
     if (m_thread.joinable()) {
         m_thread.join();
     }
+
+
+    m_rumbleContext.tsfn.Release();
+
 
     vigem_target_x360_unregister_notification(m_pad);
     vigem_target_remove(m_client, m_pad);
@@ -232,8 +228,13 @@ void VirtualPad::inputPollLoop()
     
 }
 
+void VirtualPad::startControllerRumbleContext(Napi::Env &env)
+{
 
 
+
+
+}
 
 void throwError(Napi::Env& env, const char *message)
 {
@@ -254,6 +255,49 @@ void TestThreaded(std::atomic<bool>& active)
         std::this_thread::sleep_for(std::chrono::seconds(1)); 
     }
     
+}
+
+void testEnvs(Napi::Env env)
+{
+
+    napi_value global, add_two, arg;
+    napi_status status = napi_get_global(env, &global);
+    if (status != napi_ok) return;
+   
+    status = napi_get_named_property(env, global, "AddTwo", &add_two);
+    if (status != napi_ok) return;
+    
+    // const arg = 1337
+    status = napi_create_int32(env, 1337, &arg);
+    if (status != napi_ok) return;
+
+    napi_value* argv = &arg;
+    size_t argc = 1;
+
+    napi_value return_val;
+    status = napi_call_function(env, global, add_two, argc, argv, &return_val);
+    if (status != napi_ok) return;
+
+    Napi::Function func = Napi::Value(env, return_val).As<Napi::Function>();
+
+    func.Call({});
+
+
+    // if (info.Length() < 1 || !info[0].IsFunction()) {
+    //     throwError(env, "Wrong Parameters");
+    //     return env.Null();
+    // }
+
+   
+    
+
+}
+
+void finalizeCallBack(Napi::Env env, void *finalizeData, RumbleContext *context)
+{
+
+    context->deferred.Resolve(Napi::String::New(env, "Closed rumble context successfully"));
+
 }
 
 Napi::Function VirtualPad::GetClass(Napi::Env env)

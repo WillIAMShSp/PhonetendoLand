@@ -14,6 +14,27 @@ const server = http.createServer(app);
 const io = new socketIO.Server(server);
 
 const pads = new Map();
+function printPlusTwo(val) {
+  console.log(val);
+}
+
+var currentRumble = false;
+
+const printRumble = (socketID) => {
+  if (currentRumble) {
+    return;
+  }
+  currentRumble = true;
+
+  console.log("client on the socket:", socketID, "was ordered to vibrate\n");
+
+  io.to(socketID).emit("vibrate");
+
+  setTimeout(() => {
+    currentRumble = false;
+    return;
+  }, 500);
+};
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use("/dist", express.static(path.join(__dirname, "dist")));
@@ -79,18 +100,12 @@ io.sockets.on("connection", (socket) => {
     pad.sendInput(input[0], input[1]);
   });
 
-  function testFunc() {
-    console.log("test func called");
-  }
-  global.testFunc = testFunc;
-
   socket.on("controllerStart", function () {
     const pad = pads.get(socket.id);
     if (!pad) {
       console.log("No virtual pad for socket:", socket.id, "\n");
     }
-
-    pad.startController(testFunc);
+    pad.startController(printRumble, socket.id);
   });
 
   socket.on("controllerEnd", function () {
