@@ -71,7 +71,7 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
 {
     Napi::Env env = info.Env();
     
-    if(info.Length() < 1 ||  !info[0].IsFunction()) 
+    if(info.Length() < 2 ||  !info[0].IsFunction() || info[1].IsUndefined()) 
     {
         throwError(env, "Incorrect parameters!");
         return env.Null();
@@ -82,7 +82,8 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
     Napi::Function funcVal = info[0].As<Napi::Function>();
 
     m_rumbleContext.tsfn = Napi::ThreadSafeFunction::New(env, funcVal, "RumbleContext", 0, 1, &m_rumbleContext, finalizeCallBack, (void*)nullptr);
-    
+    m_rumbleContext.padSocket = info[1].As<Napi::String>();
+    std::cout<<"Starting a virtual pad for socket: "<< m_rumbleContext.padSocket << "\n";
 
     g_padActive = true;
 

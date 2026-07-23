@@ -38,6 +38,7 @@ struct RumbleContext {
 
     Napi::Promise::Deferred deferred;
     Napi::ThreadSafeFunction tsfn;
+    std::string padSocket;
 };
 
 
@@ -45,12 +46,12 @@ struct RumbleContext {
 VOID CALLBACK RumbleCallback(PVIGEM_CLIENT Client, PVIGEM_TARGET Target, UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData) {
     RumbleContext* rumbleContext = (RumbleContext*)UserData;
     
-    const auto callback = [](Napi::Env env, Napi::Function jsCallback){
-        jsCallback.Call({});
+    const auto callback = [](Napi::Env env, Napi::Function jsCallback, std::string* socket){
+        jsCallback.Call({Napi::String::New(env, socket->c_str())});
     };
 
 
-    napi_status status = rumbleContext->tsfn.BlockingCall(callback);
+    napi_status status = rumbleContext->tsfn.BlockingCall(&rumbleContext->padSocket,callback);
     if (status != napi_ok) {
         std::cout<< "Failed to make blocking call";
     }

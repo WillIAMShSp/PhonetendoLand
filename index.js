@@ -105,6 +105,7 @@ io.sockets.on("connection", (socket) => {
     if (!pad) {
       console.log("No virtual pad for socket:", socket.id, "\n");
     }
+    console.log("Creating virtual pad for socket:", socket.id);
     pad.startController(printRumble, socket.id);
   });
 
