@@ -17,6 +17,7 @@
 #include <atomic>
 #include <queue>
 #include <mutex>
+#include <limits>
 
 
 #include <napi.h>
@@ -29,6 +30,10 @@ struct ControllerInput {
     USHORT buttonMask;
     bool pressState;
 
+};
+struct JoystickAnalog {
+    SHORT x = 0;
+    SHORT y = 0;
 };
 
 struct RumbleContext {
@@ -46,15 +51,22 @@ struct RumbleContext {
 VOID CALLBACK RumbleCallback(PVIGEM_CLIENT Client, PVIGEM_TARGET Target, UCHAR LargeMotor, UCHAR SmallMotor, UCHAR LedNumber, LPVOID UserData) {
     RumbleContext* rumbleContext = (RumbleContext*)UserData;
     
-    const auto callback = [](Napi::Env env, Napi::Function jsCallback, std::string* socket){
-        jsCallback.Call({Napi::String::New(env, socket->c_str())});
-    };
+    if (LargeMotor > 0 || SmallMotor > 0) {
+
+        const auto callback = [](Napi::Env env, Napi::Function jsCallback, std::string* socket){
+            jsCallback.Call({Napi::String::New(env, socket->c_str())});
+        };
+    
+    
+        napi_status status = rumbleContext->tsfn.BlockingCall(&rumbleContext->padSocket,callback);
+        if (status != napi_ok) {
+            std::cout<< "Failed to make blocking call";
+        }
 
 
-    napi_status status = rumbleContext->tsfn.BlockingCall(&rumbleContext->padSocket,callback);
-    if (status != napi_ok) {
-        std::cout<< "Failed to make blocking call";
     }
+    
+
 
 
 
@@ -68,7 +80,8 @@ public:
 
     Napi::Value test(const Napi::CallbackInfo& info);
     Napi::Value startController(const Napi::CallbackInfo& info);
-    Napi::Value sendInput(const Napi::CallbackInfo& info);
+    Napi::Value sendInput(const Napi::CallbackInfo& info); 
+    Napi::Value sendAnalogValue(const Napi::CallbackInfo& info);
     Napi::Value endController(const Napi::CallbackInfo& info);
 
     static Napi::Function GetClass(Napi::Env env);
@@ -81,12 +94,17 @@ public:
 private:
     
     std::string playerId;
-    std::thread m_thread;
+    std::thread g_controllerInputThread;
     std::atomic<bool> g_padActive;
     std::queue<ControllerInput> g_controllerInputQueue;
-    std::mutex g_mutex;
+    std::mutex g_controllerInputMutex;
 
-    void injectInput(ControllerInput input);
+    std::thread g_leftAnalogThread;
+    std::atomic<JoystickAnalog> g_leftAnalogStick;
+    std::mutex g_leftAnalogMutex;
+
+    void injectInput(ControllerInput input); 
+    void injectAnalog(JoystickAnalog analog);
 
     PVIGEM_CLIENT m_client;
     PVIGEM_TARGET m_pad;
@@ -94,13 +112,11 @@ private:
     USHORT g_buttonStates = 0;
     void inputPollLoop();
 
-    // Napi::Env m_env;
-    // napi_handle_scope m_scope;
 
     RumbleContext m_rumbleContext;
-    void startControllerRumbleContext(Napi::Env& env);
+
     
-   
+    
     
 
 

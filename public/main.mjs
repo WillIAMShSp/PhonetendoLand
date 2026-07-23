@@ -1,4 +1,5 @@
 import { WebHaptics, defaultPatterns } from "web-haptics";
+import nipplejs from "nipplejs";
 
 const haptics = new WebHaptics({
   debug: true,
@@ -36,6 +37,7 @@ var turnReady;
 
 var sendChannel;
 var receiveChannel;
+var audioCtx;
 
 var pcConfig = {
   iceServers: [
@@ -90,7 +92,67 @@ socket.on("log", function (array) {
 
 socket.on("vibrate", function () {
   console.log("Should be vibrating!!");
-  haptics.trigger(defaultPatterns.buzz);
+  //haptics.trigger(defaultPatterns.buzz);
+  if (!audioCtx) return;
+
+  const now = audioCtx.currentTime;
+  const duration = 1000 / 1000;
+
+  const carrier1 = audioCtx.createOscillator();
+  carrier1.type = "sine";
+  carrier1.frequency.setValueAtTime(42, now);
+
+  // Carrier 2: Low 48Hz sawtooth (adds mechanical grit and creates 6Hz acoustic "beating")
+  const carrier2 = audioCtx.createOscillator();
+  carrier2.type = "sawtooth";
+  carrier2.frequency.setValueAtTime(48, now);
+
+  // --- 2. Tremolo / Motor Chopper (LFO) ---
+  // Chops the volume 20 times per second to mimic an off-center motor spinning
+  const tremoloLFO = audioCtx.createOscillator();
+  tremoloLFO.type = "sine";
+  tremoloLFO.frequency.setValueAtTime(22, now); // 22Hz tremor rate
+
+  const tremoloGain = audioCtx.createGain();
+  tremoloGain.gain.setValueAtTime(0.5, now); // Depth of chopping effect
+
+  tremoloLFO.connect(tremoloGain.gain);
+
+  // --- 3. Low Pass Filter ---
+  // Keeps the mechanical physical energy while cutting high audio whines
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.setValueAtTime(110, now);
+
+  // --- 4. Master Volume Envelope ---
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.setValueAtTime(0.01, now);
+  // Quick 30ms ramp up so it starts smoothly without an abrupt pop
+  masterGain.gain.exponentialRampToValueAtTime(1.2, now + 0.03);
+
+  // --- 5. Connect Signal Chain ---
+  carrier1.connect(tremoloGain);
+  carrier2.connect(tremoloGain);
+  tremoloGain.connect(filter);
+  filter.connect(masterGain);
+  masterGain.connect(audioCtx.destination);
+
+  // Start Oscillators
+  carrier1.start(now);
+  carrier2.start(now);
+  tremoloLFO.start(now);
+
+  // --- 6. Handle Stopping ---
+  if (duration > 0) {
+    // Fade out smoothly at the end instead of stopping abruptly
+    const stopTime = now + duration;
+    masterGain.gain.setValueAtTime(1.2, stopTime - 0.05);
+    masterGain.gain.exponentialRampToValueAtTime(0.001, stopTime);
+
+    carrier1.stop(stopTime);
+    carrier2.stop(stopTime);
+    tremoloLFO.stop(stopTime);
+  }
 });
 
 ////////////////////////////////////////////////
@@ -142,6 +204,22 @@ var dPadDown = document.getElementById("btnDown");
 var dPadLeft = document.getElementById("btnLeft");
 var dPadRight = document.getElementById("btnRight");
 
+const joystick = nipplejs.create({
+  zone: document.getElementById("joystick"),
+  mode: "static",
+  position: { left: "50%", top: "50%" },
+  size: 400,
+  color: "blue",
+});
+
+joystick.on("move", (evt) => {
+  socket.emit("controllerAnalog", evt.data.vector);
+});
+
+joystick.on("end", (evt) => {
+  socket.emit("controllerAnalog", { x: 0, y: 0 });
+});
+
 function padButtonEventListenerAssignment(button, buttonValue) {
   button.addEventListener("touchstart", () => {
     f_buttonClick(buttonValue, true);
@@ -153,8 +231,6 @@ function padButtonEventListenerAssignment(button, buttonValue) {
 }
 
 function f_buttonClick(button, pressed) {
-  sendChannel.send("SENT!");
-
   socket.emit("controllerInput", [button, pressed]);
 }
 
@@ -178,6 +254,9 @@ function f_startButton() {
   } else {
     sendMessage("got user media");
     socket.emit("controllerStart");
+    audioCtx = new (
+      window.AudioContext || window.webkitAudiowebkitAudioContext
+    )();
   }
 }
 
@@ -194,10 +273,10 @@ endButton.addEventListener("click", f_endButton);
 padButtonEventListenerAssignment(xButton, buttonAtlas.X);
 padButtonEventListenerAssignment(aButton, buttonAtlas.A);
 
-padButtonEventListenerAssignment(dPadUp, buttonAtlas.DPAD_UP);
-padButtonEventListenerAssignment(dPadDown, buttonAtlas.DPAD_DOWN);
-padButtonEventListenerAssignment(dPadLeft, buttonAtlas.DPAD_LEFT);
-padButtonEventListenerAssignment(dPadRight, buttonAtlas.DPAD_RIGHT);
+// padButtonEventListenerAssignment(dPadUp, buttonAtlas.DPAD_UP);
+// padButtonEventListenerAssignment(dPadDown, buttonAtlas.DPAD_DOWN);
+// padButtonEventListenerAssignment(dPadLeft, buttonAtlas.DPAD_LEFT);
+// padButtonEventListenerAssignment(dPadRight, buttonAtlas.DPAD_RIGHT);
 
 function triggerDemoVibration() {
   console.log("Vibrate button pressed");

@@ -166,3 +166,12 @@ h1 {
   grid-column: 2;
   grid-row: 3;
 }
+
+.joy-container-left {
+  position: absolute;
+  bottom: 30vh; /* Vertically mirrors your right-side buttons */
+  left: 15vw; /* Anchors to the left edge of the screen */
+  width: 30vmin;
+  height: 30vmin;
+  z-index: 5;
+}

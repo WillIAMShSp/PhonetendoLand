@@ -35,8 +35,8 @@ VirtualPad::~VirtualPad()
 {
     
 
-    if (m_thread.joinable()) {
-        m_thread.join();
+    if (g_controllerInputThread.joinable()) {
+        g_controllerInputThread.join();
     }
     if (g_padActive) {
         g_padActive = false;
@@ -90,7 +90,7 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
     m_client = vigem_alloc();
     if (m_client == nullptr || !VIGEM_SUCCESS(vigem_connect(m_client))) 
     {
-        throw std::runtime_error("VigemConnection Failed."); //this might cause a problem if one controller malfunctions and the whole thing just dies.
+        throwError(env, "Failed to allocate vigem controller");
     }
     
     m_pad = vigem_target_x360_alloc();
@@ -100,7 +100,7 @@ Napi::Value VirtualPad::startController(const Napi::CallbackInfo &info)
     printf("Adding RumbleCallBack\n");
     vigem_target_x360_register_notification(m_client, m_pad, &RumbleCallback, (void*)(&m_rumbleContext));
 
-    m_thread = std::thread(&VirtualPad::inputPollLoop, this);
+    g_controllerInputThread = std::thread(&VirtualPad::inputPollLoop, this);
 
     printf("Connected a controller!\n");
 
@@ -132,16 +132,45 @@ Napi::Value VirtualPad::sendInput(const Napi::CallbackInfo &info)
     ControllerInput currentInput;
 
     USHORT buttonMask = info[0].As<Napi::Number>().Uint32Value();
-    printf("ButtonMask: %d", buttonMask);
+    // printf("ButtonMask: %d\n", buttonMask);
     
     bool pressed = info[1].As<Napi::Boolean>();
-    const char* pressedLog = pressed? "Pressed: true" : "Pressed:False";
-    printf(pressedLog);
+    // const char* pressedLog = pressed? "Pressed: true\n" : "Pressed:False\n";
+    // printf(pressedLog);
 
     currentInput.buttonMask = buttonMask;
     currentInput.pressState = pressed;
 
     injectInput(currentInput);
+
+    return Napi::Value();
+}
+
+Napi::Value VirtualPad::sendAnalogValue(const Napi::CallbackInfo &info)
+{
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 2) {
+        throwError(env, "Incorrect number of parameters");
+        return env.Null();
+    }
+    if (!info[0].IsNumber() || !info[1].IsNumber()) {
+        throwError(env, "Incorrect number of parameters");
+        return env.Null();
+    }
+
+    JoystickAnalog analog;
+    float xValue = info[0].As<Napi::Number>().FloatValue();
+    float yValue = info[1].As<Napi::Number>().FloatValue();
+
+    analog.x = static_cast<SHORT> (xValue * SHRT_MAX);
+    analog.y = static_cast<SHORT> (yValue * SHRT_MAX);
+
+    // std::cout << "Analog stick X value: " << analog.x << "\n";
+    // std::cout << "Analog stick Y value: " << analog.y << "\n";
+
+    injectAnalog(analog);
+   
 
     return Napi::Value();
 }
@@ -152,8 +181,8 @@ Napi::Value VirtualPad::endController(const Napi::CallbackInfo &info)
 
     g_padActive = false;
 
-    if (m_thread.joinable()) {
-        m_thread.join();
+    if (g_controllerInputThread.joinable()) {
+        g_controllerInputThread.join();
     }
 
 
@@ -179,33 +208,41 @@ std::atomic<bool>& VirtualPad::getPadActive()
 
 std::thread &VirtualPad::getPadThread()
 {
-    return m_thread;
+    return g_controllerInputThread;
     // TODO: insert return statement here
 }
 
 void VirtualPad::injectInput(ControllerInput input)
 {
     
-    std::lock_guard<std::mutex> lock(g_mutex);
+    std::lock_guard<std::mutex> lock(g_controllerInputMutex);
     g_controllerInputQueue.push(input);
-    printf("Detected Input %d", input.buttonMask);
+    //printf("Detected Input %d, amount of actions in queue: %d\n", input.buttonMask, static_cast<uint32_t>(g_controllerInputQueue.size()));
     
+}
+
+void VirtualPad::injectAnalog(JoystickAnalog analog)
+{
+    
+    g_leftAnalogStick.store(analog, std::memory_order_relaxed);
 }
 
 void VirtualPad::inputPollLoop()
 {
     XUSB_REPORT report;
-    
+
     while (g_padActive) {
-        RtlZeroMemory(&report, sizeof(DS4_REPORT));
+        RtlZeroMemory(&report, sizeof(XUSB_REPORT));
         
         {
-            std::lock_guard<std::mutex> lock(g_mutex);
+            std::lock_guard<std::mutex> lock(g_controllerInputMutex);
             while (!g_controllerInputQueue.empty()) 
             {
                 ControllerInput input = g_controllerInputQueue.front();
                 g_controllerInputQueue.pop();
                 
+                //std::cout<<"Button mask: "<< input.buttonMask<< " in pressed state: "<< input.pressState <<" has been popped from queue.\n";
+
                 if (input.pressState) 
                 {
                     g_buttonStates |= input.buttonMask;
@@ -215,10 +252,18 @@ void VirtualPad::inputPollLoop()
                     g_buttonStates &= ~input.buttonMask;
                 }
                 
+                //report.sThumbLX = g_leftAnalogStick.load().x;
+                //report.sThumbLY = g_leftAnalogStick.load().y;
             }
         }
 
         report.wButtons = g_buttonStates;
+        
+        JoystickAnalog analog = g_leftAnalogStick.load();
+        report.sThumbLX = analog.x;
+        report.sThumbLY = analog.y;
+        
+        
         vigem_target_x360_update(m_client, m_pad, report);
         
         
@@ -229,13 +274,6 @@ void VirtualPad::inputPollLoop()
     
 }
 
-void VirtualPad::startControllerRumbleContext(Napi::Env &env)
-{
-
-
-
-
-}
 
 void throwError(Napi::Env& env, const char *message)
 {
@@ -310,6 +348,7 @@ Napi::Function VirtualPad::GetClass(Napi::Env env)
             VirtualPad::InstanceMethod("test", &VirtualPad::test),
             VirtualPad::InstanceMethod("startController", &VirtualPad::startController),
             VirtualPad::InstanceMethod("sendInput", &VirtualPad::sendInput),
+            VirtualPad::InstanceMethod("sendAnalogValue", &VirtualPad::sendAnalogValue),
             VirtualPad::InstanceMethod("endController", &VirtualPad::endController)
 
             

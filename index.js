@@ -100,6 +100,16 @@ io.sockets.on("connection", (socket) => {
     pad.sendInput(input[0], input[1]);
   });
 
+  socket.on("controllerAnalog", function (input) {
+    const pad = pads.get(socket.id);
+    if (!pad) {
+      console.log("No virtual pad for socket:", socket.id);
+      return;
+    }
+
+    pad.sendAnalogValue(input.x, input.y);
+  });
+
   socket.on("controllerStart", function () {
     const pad = pads.get(socket.id);
     if (!pad) {
