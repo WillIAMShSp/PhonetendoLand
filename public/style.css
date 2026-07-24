@@ -38,12 +38,19 @@ h1 {
 #localVideo,
 #remoteVideo {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover; /* Fills screen without distortion */
-  z-index: 1;
+  top: 2vh;
+  left: 2vw;
+  width: 90vw;
+  height: 90vh;
+  object-fit: fill;
+
+  border: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+
+  /* Keep hardware acceleration active for low latency */
+  transform: translateZ(0);
 }
 
 .hidden {

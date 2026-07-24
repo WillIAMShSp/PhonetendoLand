@@ -50,7 +50,11 @@ io.sockets.on("connection", (socket) => {
 
   socket.on("message", (message) => {
     log("Message: ", message);
-    socket.broadcast.emit("message", message);
+
+    const room = Array.from(socket.rooms).find((r) => r !== socket.id);
+    if (room) {
+      socket.to(room).emit("message", message);
+    }
   });
 
   socket.on("create or join", function (room) {
@@ -70,11 +74,20 @@ io.sockets.on("connection", (socket) => {
       io.sockets.in(room).emit("join", room);
       socket.join(room);
       socket.emit("joined", room, socket.id);
+      socket.emit("gamepad");
+      io.sockets.in(room).emit("ready");
+      const pad = new VirtualPad(socket.id);
+      pads.set(socket.id, pad);
+    } else if (numClients < 6) {
+      log("Client ID " + socket.id + " joined room " + room);
+      io.sockets.in(room).emit("join", room);
+      socket.join(room);
+      socket.emit("joined", room, socket.id);
+      socket.emit("controller");
       io.sockets.in(room).emit("ready");
       const pad = new VirtualPad(socket.id);
       pads.set(socket.id, pad);
     } else {
-      // max two clients
       socket.emit("full", room);
     }
   });
@@ -125,6 +138,7 @@ io.sockets.on("connection", (socket) => {
       console.log("No virtual pad for socket:", socket.id);
     }
     pad.endController();
+    pads.delete(pad);
   });
 });
 

@@ -29,6 +29,8 @@ document.addEventListener("gesturestart", function (e) {
 
 var isChannelReady = false;
 var isInitiator = false;
+var isGamePad = false;
+var isController = false;
 var isStarted = false;
 var localStream;
 var pc;
@@ -41,10 +43,11 @@ var audioCtx;
 
 var pcConfig = {
   iceServers: [
-    {
-      urls: "stun:stun.l.google.com:19302",
-    },
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
   ],
+  iceCandidatePoolSize: 10,
 };
 
 // Set up audio and video regardless of what devices are present.
@@ -86,6 +89,16 @@ socket.on("joined", function (room) {
   isChannelReady = true;
 });
 
+socket.on("gamepad", function () {
+  console.log("This peer is the gamepad!");
+  isGamePad = true;
+});
+
+socket.on("controller", function () {
+  console.log("This peer is a controller");
+  isController = true;
+});
+
 socket.on("log", function (array) {
   console.log.apply(console, array);
 });
@@ -96,7 +109,7 @@ socket.on("vibrate", function () {
   if (!audioCtx) return;
 
   const now = audioCtx.currentTime;
-  const duration = 1000 / 1000;
+  const duration = 500 / 1000;
 
   const carrier1 = audioCtx.createOscillator();
   carrier1.type = "sine";
@@ -162,8 +175,21 @@ function sendMessage(message) {
   socket.emit("message", message);
 }
 
+var pendingCandidates = [];
+
+async function processPendingCandidates() {
+  while (pendingCandidates.length > 0) {
+    const candidate = pendingCandidates.shift();
+    try {
+      await pc.addIceCandidate(candidate);
+    } catch (e) {
+      console.error("Error adding queued candidate", e);
+    }
+  }
+}
+
 // This client receives a message
-socket.on("message", function (message) {
+socket.on("message", async function (message) {
   console.log("Client received message:", message);
   if (message === "got user media") {
     maybeStart();
@@ -171,21 +197,40 @@ socket.on("message", function (message) {
     if (!isInitiator && !isStarted) {
       maybeStart();
     }
-    pc.setRemoteDescription(new RTCSessionDescription(message));
-    doAnswer();
-  } else if (message.type === "answer" && isStarted) {
-    pc.setRemoteDescription(new RTCSessionDescription(message));
+
+    if (pc && pc.signalingState !== "closed") {
+      await pc.setRemoteDescription(new RTCSessionDescription(message));
+      await processPendingCandidates();
+      doAnswer();
+    }
+  } else if (message.type === "answer") {
+    if (pc && pc.signalingState === "have-local-offer") {
+      await pc.setRemoteDescription(new RTCSessionDescription(message));
+    } else {
+      console.warn(
+        "Ignored remote answer because signalingState is:",
+        pc?.signalingState,
+      );
+    }
   } else if (message.type === "candidate" && isStarted) {
     var candidate = new RTCIceCandidate({
       sdpMLineIndex: message.label,
       candidate: message.candidate,
     });
-    pc.addIceCandidate(candidate);
+
+    if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+      try {
+        await pc.addIceCandidate(candidate);
+      } catch (error) {
+        console.error("Error adding candidate!", error);
+      }
+    } else {
+      pendingCandidates.push(candidate);
+    }
   } else if (message === "bye" && isStarted) {
     handleRemoteHangup();
   }
 });
-
 ////////////////////////////////////////////////////
 
 var localVideo = document.querySelector("#localVideo");
@@ -204,12 +249,21 @@ var dPadDown = document.getElementById("btnDown");
 var dPadLeft = document.getElementById("btnLeft");
 var dPadRight = document.getElementById("btnRight");
 
+function getJoystickSize() {
+  // Example: 20% of the viewport width, but clamped between 150px and 400px
+  const calculatedSize = window.innerWidth * 0.2;
+  return Math.min(Math.max(calculatedSize, 150), 400);
+}
+
 const joystick = nipplejs.create({
   zone: document.getElementById("joystick"),
   mode: "static",
   position: { left: "50%", top: "50%" },
-  size: 400,
-  color: "blue",
+  size: getJoystickSize(),
+  color: {
+    front: "rgba(255, 255, 255, 0.3)",
+    back: "radial-gradient(circle, rgba(0,0,0,0.2), transparent)",
+  },
 });
 
 joystick.on("move", (evt) => {
@@ -235,16 +289,25 @@ function f_buttonClick(button, pressed) {
 }
 
 function f_startButton() {
+  if (isController) {
+    socket.emit("controllerStart");
+    audioCtx = new (
+      window.AudioContext || window.webkitAudiowebkitAudioContext
+    )();
+    return;
+  }
+
   if (isInitiator) {
     console.log("HELLO");
     navigator.mediaDevices
       .getDisplayMedia({
         audio: false,
         video: {
-          width: { ideal: 1280, max: 1280 },
-          height: { ideal: 720, max: 720 },
-
+          width: { ideal: window.innerWidth },
+          height: { ideal: window.innerHeight },
+          latency: { max: 0 },
           frameRate: { ideal: 60, max: 60 },
+          displaySurface: "monitor",
         },
       })
       .then(gotStream)
@@ -312,8 +375,23 @@ function maybeStart() {
   if (!isStarted && isChannelReady) {
     console.log(">>>>>> creating peer connection");
     createPeerConnection();
-    if (isInitiator) {
-      pc.addStream(localStream);
+    if (isInitiator && localStream) {
+      localStream.getTracks().forEach((track) => {
+        pc.addTrack(track, localStream);
+      });
+      // const transceiver = pc
+      //   .getTransceivers()
+      //   .find((t) => t.sender.track && t.sender.track.kind === "video");
+
+      // if (transceiver && "setCodecPreferences" in transceiver) {
+      //   const codecs = RTCRtpReceiver.getCapabilities("video").codecs;
+      //   const h264Codecs = codecs.filter((c) => c.mimeType === "video/H264");
+
+      //   if (h264Codecs.length > 0) {
+      //     transceiver.setCodecPreferences(h264Codecs);
+      //     console.log("Successfully prioritized H.264 codec");
+      //   }
+      // }
     }
     sendChannel = pc.createDataChannel("sendDataChannel", sdpDataConstraint);
     isStarted = true;
@@ -345,7 +423,7 @@ function createPeerConnection() {
   try {
     pc = new RTCPeerConnection(null);
     pc.onicecandidate = handleIceCandidate;
-    pc.onaddstream = handleRemoteStreamAdded;
+    pc.ontrack = handleRemoteStreamAdded;
     pc.onremovestream = handleRemoteStreamRemoved;
     pc.ondatachannel = onRecieveChannel;
 
@@ -410,12 +488,14 @@ function setLocalAndSendMessage(sessionDescription) {
       }
 
       // 1,500,000 bits per second = 1.5 Mbps
-      parameters.encodings[0].maxBitrate = 1500000;
+      parameters.encodings[0].maxBitrate = 3000000;
+
+      parameters.degradationPreference = "maintain-framerate";
 
       videoSender
         .setParameters(parameters)
         .then(() => {
-          console.log("Successfully limited video bitrate to 1.5 Mbps");
+          console.log("Successfully limited video bitrate to 3 Mbps");
         })
         .catch((err) => {
           console.error("Could not limit bitrate via setParameters:", err);
@@ -431,14 +511,22 @@ function onCreateSessionDescriptionError(error) {
 }
 
 function handleRemoteStreamAdded(event) {
+  if (!isGamePad) {
+    return;
+  }
+
   console.log("Remote stream added.");
-  remoteStream = event.stream;
-  remoteVideo.srcObject = remoteStream;
-  remoteVideo.play().then(() => {
-    if ("playoutDelayHint" in remoteVideo) {
-      remoteVideo.playoutDelayHint = 0;
-    }
-  });
+  if (remoteVideo.srcObject !== event.streams[0]) {
+    remoteVideo.srcObject = event.streams[0];
+    remoteVideo
+      .play()
+      .then(() => {
+        if ("playoutDelayHint" in remoteVideo) {
+          remoteVideo.playoutDelayHint = 0;
+        }
+      })
+      .catch((e) => console.error("Error playing video:", e));
+  }
 }
 
 function handleRemoteStreamRemoved(event) {
@@ -453,12 +541,26 @@ function hangup() {
 
 function handleRemoteHangup() {
   console.log("Session terminated.");
+  socket.emit("controllerEnd");
   stop();
   isInitiator = false;
 }
 
 function stop() {
   isStarted = false;
-  pc.close();
-  pc = null;
+
+  if (sendChannel) {
+    sendChannel.close();
+    sendChannel = null;
+  }
+  if (receiveChannel) {
+    receiveChannel.close();
+    receiveChannel = null;
+  }
+  if (pc) {
+    pc.ontrack = null;
+    pc.onicecandidate = null;
+    pc.close();
+    pc = null;
+  }
 }
